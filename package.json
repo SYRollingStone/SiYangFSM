@@ -1,0 +1,23 @@
+{
+  "name": "com.siyang.siyangfsm",
+  "displayName": "SiYangFSM",
+  "version": "1.0.0",
+  "unity": "2018.4",
+  "description": "轻量级可扩展 Unity 运行时有限状态机框架",
+  "author": {
+    "name": "温世洋",
+    "email": "1364153202@qq.com",
+    "url": "https://github.com/SYRollingStone/SiYangUnityEventSystem"
+  },
+  "keywords": [
+    "fsm",
+    "unity"
+  ],
+  "samples": [
+    {
+      "displayName": "Basic Demo",
+      "description": "纯代码创建一个简单的角色状态机，需要新InputSystem。",
+      "path": "Samples~/BasicDemo"
+    }
+  ]
+}

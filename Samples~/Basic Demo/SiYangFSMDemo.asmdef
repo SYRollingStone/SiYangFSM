@@ -1,0 +1,16 @@
+{
+    "name": "SiYangFSMDemo",
+    "rootNamespace": "",
+    "references": [
+        "GUID:6efc0eacea568b444a84b69538a4892d"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
