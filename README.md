@@ -33,6 +33,9 @@
 
 ### 5. 状态切换事件
 
+### 6. 提供编辑器创建单个状态机，可以不手动创建文件编写代码。
+菜单位于SiYangFramework/SiYangFSM/State Generator (Template)
+
 ## 📁 推荐目录结构
 
 SiYangFSM/

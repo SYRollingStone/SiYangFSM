@@ -1,0 +1,39 @@
+using System;
+
+namespace {{Namespace}}
+{
+    /// <summary>
+    /// {{ClassName}}
+    /// </summary>
+    public class {{ClassName}} : StateBase
+    {
+        public {{ClassName}}() : base("{{StateName}}")
+        {
+        }
+
+        public override void OnEnter()
+        {
+            // TODO: Enter logic
+        }
+
+        public override void OnExit()
+        {
+            // TODO: Exit logic
+        }
+
+        public override void Tick(float deltaTime)
+        {
+            // TODO: Update logic
+        }
+
+        public override void FixedTick(float fixedDeltaTime)
+        {
+            // TODO: FixedUpdate logic
+        }
+
+        public override void HandleEvent(string eventId, object data = null)
+        {
+            // TODO: Event handling
+        }
+    }
+}

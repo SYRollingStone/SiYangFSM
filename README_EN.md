@@ -11,6 +11,8 @@ A lightweight FSM framework for Unity.
 - Nested FSM
 - Runtime assembly
 - AnyState & priorities
+- An editor tool is provided to generate individual state classes without manually creating files or writing code.
+Menu path: SiYangFramework/SiYangFSM/State Generator (Template)
 
 ## 📁 Suggested Structure
 SiYangFSM/

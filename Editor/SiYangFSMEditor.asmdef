@@ -1,0 +1,16 @@
+{
+    "name": "SiYangFSMEditor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:94a93c3f9472aa94da5408e15bc05627"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
