@@ -296,5 +296,59 @@ namespace SiYangFSM
         }
 
         #endregion
+
+        #region 递归深度判断当前状态
+
+        /// <summary>
+        /// 判断当前状态机是否处于（或处于目标状态机的子状态机中）
+        /// </summary>
+        /// <param name="state">要判断的目标状态（可以是普通状态或状态机）</param>
+        /// <returns>如果当前状态或任意层级父状态是目标状态，则返回true</returns>
+        public bool IsInState(IState state)
+        {
+            if (CurrentState == null) return false;
+    
+            // 情况1：当前状态就是目标状态
+            if (CurrentState == state) return true;
+    
+            // 情况2：当前状态本身也是一个状态机（嵌套），则递归查询这个子状态机
+            if (CurrentState is StateMachine subMachine)
+            {
+                return subMachine.IsInState(state);
+            }
+    
+            return false;
+        }
+
+        /// <summary>
+        /// 判断当前状态机是否处于目标状态，并尝试获取状态路径（用于调试或详细判断）
+        /// </summary>
+        /// <param name="targetState">目标状态</param>
+        /// <param name="statePath">输出参数，从当前状态到目标状态的路径</param>
+        /// <returns>是否处于目标状态</returns>
+        public bool IsInState(IState targetState, out List<IState> statePath)
+        {
+            statePath = new List<IState>();
+            return GetStatePathRecursive(this, targetState, statePath);
+        }
+
+        private bool GetStatePathRecursive(StateMachine currentMachine, IState targetState, List<IState> path)
+        {
+            if (currentMachine.CurrentState == null) return false;
+    
+            path.Add(currentMachine.CurrentState);
+    
+            if (currentMachine.CurrentState == targetState) return true;
+    
+            if (currentMachine.CurrentState is StateMachine subMachine)
+            {
+                return GetStatePathRecursive(subMachine, targetState, path);
+            }
+    
+            path.RemoveAt(path.Count - 1); // 回溯
+            return false;
+        }
+
+        #endregion
     }
 }
