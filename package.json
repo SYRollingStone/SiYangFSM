@@ -1,7 +1,7 @@
 {
   "name": "com.siyang.siyangfsm",
   "displayName": "SiYangFSM",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "unity": "2018.4",
   "description": "轻量级可扩展 Unity 运行时有限状态机框架",
   "author": {
