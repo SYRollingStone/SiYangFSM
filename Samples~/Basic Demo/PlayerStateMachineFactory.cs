@@ -5,7 +5,7 @@ using UnityEngine;
 
 public static class PlayerStateMachineFactory
 {
-    public static StateMachine CreatePlayerStateMachine()
+    public static StateMachine<EnumCodeInput> CreatePlayerStateMachine()
     {
         var ctx = new PlayerContext();
 
@@ -13,8 +13,8 @@ public static class PlayerStateMachineFactory
         var locomotion = BuildLocomotionStateMachine(ctx);
 
         // 2. 死亡状态
-        var deadState = new SimpleState(
-            "Dead",
+        var deadState = new SimpleState<EnumCodeInput>(
+            EnumCodeInput.Dead,
             onEnter: () =>
             {
                 Debug.Log("Enter Dead");
@@ -22,7 +22,7 @@ public static class PlayerStateMachineFactory
             });
 
         // 3. 顶层状态机
-        var root = new StateMachine("PlayerRoot", ctx);
+        var root = new StateMachine<EnumCodeInput>(EnumCodeInput.PlayerRoot, ctx);
 
         root.AddState(locomotion, setAsDefault: true);
         root.AddState(deadState);
@@ -42,34 +42,34 @@ public static class PlayerStateMachineFactory
 
         root.OnStateChanged += (prev, cur) =>
         {
-            Debug.Log($"[Root] {prev?.Name ?? "None"} -> {cur?.Name}");
+            Debug.Log($"[Root] {prev?.StateKey.ToString() ?? "None"} -> {cur?.StateKey.ToString()}");
         };
 
         return root;
     }
 
-    private static StateMachine BuildLocomotionStateMachine(PlayerContext ctx)
+    private static StateMachine<EnumCodeInput> BuildLocomotionStateMachine(PlayerContext ctx)
     {
-        var sm = new StateMachine("Locomotion", ctx);
+        var sm = new StateMachine<EnumCodeInput>(EnumCodeInput.Locomotion, ctx);
 
-        var idle = new SimpleState(
-            "Idle",
+        var idle = new SimpleState<EnumCodeInput>(
+            EnumCodeInput.Idle,
             onEnter: () =>
             {
                 Debug.Log("Enter Idle");
                 ctx.Speed = 0f;
             });
 
-        var walk = new SimpleState(
-            "Walk",
+        var walk = new SimpleState<EnumCodeInput>(
+            EnumCodeInput.Walk,
             onEnter: () =>
             {
                 Debug.Log("Enter Walk");
                 ctx.Speed = 2f;
             });
 
-        var run = new SimpleState(
-            "Run",
+        var run = new SimpleState<EnumCodeInput>(
+            EnumCodeInput.Run,
             onEnter: () =>
             {
                 Debug.Log("Enter Run");
@@ -128,7 +128,7 @@ public static class PlayerStateMachineFactory
 
         sm.OnStateChanged += (prev, cur) =>
         {
-            Debug.Log($"[Locomotion] {prev?.Name ?? "None"} -> {cur?.Name}");
+            Debug.Log($"[Locomotion] {prev?.StateKey.ToString() ?? "None"} -> {cur?.StateKey.ToString()}");
         };
 
         return sm;

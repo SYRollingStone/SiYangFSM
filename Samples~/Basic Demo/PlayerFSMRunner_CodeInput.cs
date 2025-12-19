@@ -3,9 +3,19 @@ using UnityEngine;
 using UnityEngine.InputSystem;   // 新 Input System
 using SiYangFSM; // 你的 FSM 命名空间
 
+public enum EnumCodeInput
+{
+    PlayerRoot,
+    Dead,
+    Locomotion,
+    Idle,
+    Walk,
+    Run
+}
+
 public class PlayerFSMRunner_CodeInput : MonoBehaviour
 {
-    private StateMachine _fsm;
+    private StateMachine<EnumCodeInput> _fsm;
     private PlayerContext _ctx;
 
     private InputActionMap _map;
@@ -107,5 +117,17 @@ public class PlayerFSMRunner_CodeInput : MonoBehaviour
     {
         _ctx.IsDead = !_ctx.IsDead;
         Debug.Log($"Toggle IsDead = {_ctx.IsDead}");
+    }
+
+    public void CurrentIsRunBtnOnClick()
+    {
+        if (_fsm.IsInState(EnumCodeInput.Run))
+        {
+            Debug.Log("CurrentIsRunBtnOnClick is Run!");
+        }
+        else
+        {
+            Debug.Log("CurrentIsRunBtnOnClick is not Run!");
+        }
     }
 }

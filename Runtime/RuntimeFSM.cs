@@ -6,9 +6,9 @@ namespace SiYangFSM
     /// <summary>
     /// 状态接口：可以被状态机或外部驱动器调用。
     /// </summary>
-    public interface IState
+    public interface IState<T> where T : IComparable
     {
-        string Name { get; }
+        T StateKey { get; } // 使用泛型类型作为状态标识
 
         /// <summary>进入状态时调用。</summary>
         void OnEnter();
@@ -29,13 +29,13 @@ namespace SiYangFSM
     /// <summary>
     /// 简单的状态基类，帮你填充空实现。
     /// </summary>
-    public abstract class StateBase : IState
+    public abstract class StateBase<T> : IState<T> where T : IComparable
     {
-        public string Name { get; }
+        public T StateKey { get; }
 
-        protected StateBase(string name)
+        protected StateBase(T stateKey)
         {
-            Name = name;
+            StateKey = stateKey;
         }
 
         public virtual void OnEnter() { }
@@ -48,9 +48,9 @@ namespace SiYangFSM
     /// <summary>
     /// 用委托快速创建状态，不想写子类的时候用这个。
     /// </summary>
-    public class SimpleState : IState
+    public class SimpleState<T> : IState<T> where T : IComparable
     {
-        public string Name { get; }
+        public T StateKey { get; }
 
         private readonly Action _onEnter;
         private readonly Action _onExit;
@@ -59,14 +59,14 @@ namespace SiYangFSM
         private readonly Action<string, object> _onEvent;
 
         public SimpleState(
-            string name,
+            T stateKey,
             Action onEnter = null,
             Action onExit = null,
             Action<float> tick = null,
             Action<float> fixedTick = null,
             Action<string, object> onEvent = null)
         {
-            Name = name;
+            StateKey = stateKey;
             _onEnter = onEnter ?? (() => { });
             _onExit = onExit ?? (() => { });
             _tick = tick ?? (_ => { });
@@ -107,15 +107,15 @@ namespace SiYangFSM
     /// <summary>
     /// 状态转换。
     /// </summary>
-    public class Transition
+    public class Transition<T> where T : IComparable
     {
-        public IState From { get; }
-        public IState To { get; }
+        public IState<T> From { get; }
+        public IState<T> To { get; }
         public ITransitionCondition Condition { get; }
         public int Priority { get; }
 
         /// <param name="from">null 表示 AnyState。</param>
-        public Transition(IState from, IState to, ITransitionCondition condition, int priority = 0)
+        public Transition(IState<T> from, IState<T> to, ITransitionCondition condition, int priority = 0)
         {
             From = from;
             To = to ?? throw new ArgumentNullException(nameof(to));
@@ -126,20 +126,20 @@ namespace SiYangFSM
 
     /// <summary>
     /// 核心状态机。自身实现 IState，因此支持嵌套。
+    /// 状态存储由 List 改为 Dictionary：key = T(通常为枚举)。
     /// </summary>
-    public class StateMachine : IState
+    public class StateMachine<T> : IState<T> where T : IComparable
     {
-        public string Name { get; }
+        public T StateKey { get; }
 
-        public IState CurrentState { get; private set; }
-        public IState DefaultState { get; private set; }
+        public IState<T> CurrentState { get; private set; }
+        public IState<T> DefaultState { get; private set; }
+
+        /// <summary>便捷：当前状态的 key（CurrentState==null 时返回 default(T)）。</summary>
+        public T CurrentKey => CurrentState != null ? CurrentState.StateKey : default;
 
         /// <summary>状态切换事件（旧状态，新状态）。</summary>
-        public event Action<IState, IState> OnStateChanged;
-
-        private readonly List<IState> _states = new List<IState>();
-        private readonly List<Transition> _transitions = new List<Transition>();
-        private readonly List<Transition> _anyStateTransitions = new List<Transition>();
+        public event Action<IState<T>, IState<T>> OnStateChanged;
 
         /// <summary>这个状态机使用的上下文对象，可以是任意类型。</summary>
         public object Context { get; }
@@ -147,48 +147,82 @@ namespace SiYangFSM
         /// <summary>当前状态已停留时间。</summary>
         public float TimeInCurrentState { get; private set; }
 
-        public StateMachine(string name, object context = null)
+        // ✅ Dictionary 存状态：key = T
+        private readonly Dictionary<T, IState<T>> _statesByKey = new Dictionary<T, IState<T>>();
+
+        private readonly List<Transition<T>> _transitions = new List<Transition<T>>();
+        private readonly List<Transition<T>> _anyStateTransitions = new List<Transition<T>>();
+
+        public StateMachine(T stateKey, object context = null)
         {
-            Name = name;
+            StateKey = stateKey;
             Context = context;
         }
 
         #region 配置 API（运行时组装）
 
-        public void AddState(IState state, bool setAsDefault = false)
+        /// <summary>
+        /// 添加状态。默认同 key 不允许重复；如需覆盖可 overwrite=true。
+        /// </summary>
+        public void AddState(IState<T> state, bool setAsDefault = false, bool overwrite = false)
         {
             if (state == null) throw new ArgumentNullException(nameof(state));
-            if (!_states.Contains(state))
-                _states.Add(state);
+
+            var key = state.StateKey;
+
+            if (_statesByKey.ContainsKey(key))
+            {
+                if (!overwrite)
+                    throw new InvalidOperationException($"State with key '{key}' already exists.");
+                _statesByKey[key] = state;
+            }
+            else
+            {
+                _statesByKey.Add(key, state);
+            }
 
             if (setAsDefault || DefaultState == null)
                 DefaultState = state;
         }
 
+        /// <summary>根据 key 获取状态（不存在返回 null）。</summary>
+        public IState<T> GetState(T key)
+        {
+            _statesByKey.TryGetValue(key, out var state);
+            return state;
+        }
+
+        /// <summary>设置默认状态（对象）。</summary>
+        public void SetDefaultState(IState<T> state)
+        {
+            DefaultState = state ?? throw new ArgumentNullException(nameof(state));
+        }
+
+        /// <summary>✅ 设置默认状态（key）。</summary>
+        public void SetDefaultState(T key)
+        {
+            var s = GetState(key);
+            if (s == null) throw new KeyNotFoundException($"Default state key '{key}' not found.");
+            DefaultState = s;
+        }
+
         /// <summary>From 为 null 相当于 AnyState。</summary>
-        public void AddTransition(IState from, IState to, Func<bool> condition, int priority = 0)
+        public void AddTransition(IState<T> from, IState<T> to, Func<bool> condition, int priority = 0)
         {
-            var t = new Transition(from, to, new FuncCondition(condition), priority);
+            var t = new Transition<T>(from, to, new FuncCondition(condition), priority);
             if (from == null)
                 _anyStateTransitions.Add(t);
             else
                 _transitions.Add(t);
         }
 
-        public void AddTransition(IState from, IState to, ITransitionCondition condition, int priority = 0)
+        public void AddTransition(IState<T> from, IState<T> to, ITransitionCondition condition, int priority = 0)
         {
-            var t = new Transition(from, to, condition, priority);
+            var t = new Transition<T>(from, to, condition, priority);
             if (from == null)
                 _anyStateTransitions.Add(t);
             else
                 _transitions.Add(t);
-        }
-
-        /// <summary>设置初始状态（如果不设置，就用第一个 AddState 的状态）。</summary>
-        public void SetDefaultState(IState state)
-        {
-            if (state == null) throw new ArgumentNullException(nameof(state));
-            DefaultState = state;
         }
 
         #endregion
@@ -243,11 +277,11 @@ namespace SiYangFSM
 
         #region 状态切换
 
-        private Transition GetTriggeredTransition()
+        private Transition<T> GetTriggeredTransition()
         {
-            // 先检查 AnyState 转换（排除当前状态自身的情况）
-            Transition best = null;
+            Transition<T> best = null;
 
+            // 先检查 AnyState 转换（排除当前状态自身的情况）
             foreach (var t in _anyStateTransitions)
             {
                 if (t.To == CurrentState) continue; // 避免无意义自跳
@@ -262,6 +296,7 @@ namespace SiYangFSM
             {
                 if (t.From != CurrentState) continue;
                 if (!t.Condition.Evaluate()) continue;
+
                 if (best == null || t.Priority > best.Priority)
                     best = t;
             }
@@ -269,7 +304,7 @@ namespace SiYangFSM
             return best;
         }
 
-        private void ChangeState(IState newState, bool allowReenter = false)
+        private void ChangeState(IState<T> newState, bool allowReenter = false)
         {
             if (newState == null) return;
 
@@ -287,64 +322,108 @@ namespace SiYangFSM
         }
 
         /// <summary>
-        /// 强制切换到一个状态，可以指定是否允许重新进入当前状态。
-        /// （你可以在外部直接用这个来实现随时跳转）
+        /// 强制切换到一个状态对象，可以指定是否允许重新进入当前状态。
         /// </summary>
-        public void ForceSetState(IState newState, bool allowReenter = true)
+        public void ForceSetState(IState<T> newState, bool allowReenter = true)
         {
             ChangeState(newState, allowReenter);
         }
 
+        /// <summary>
+        /// ✅ 强制切换到一个状态 key（不存在会抛异常）。
+        /// </summary>
+        public void ForceSetState(T key, bool allowReenter = true)
+        {
+            var s = GetState(key);
+            if (s == null) throw new KeyNotFoundException($"State key '{key}' not found.");
+            ChangeState(s, allowReenter);
+        }
+
         #endregion
 
-        #region 递归深度判断当前状态
+        #region 递归深度判断当前状态（支持 key / 路径）
 
         /// <summary>
-        /// 判断当前状态机是否处于（或处于目标状态机的子状态机中）
+        /// 判断当前状态机是否处于（或处于子状态机中）某个状态对象
         /// </summary>
-        /// <param name="state">要判断的目标状态（可以是普通状态或状态机）</param>
-        /// <returns>如果当前状态或任意层级父状态是目标状态，则返回true</returns>
-        public bool IsInState(IState state)
+        public bool IsInState(IState<T> state)
+        {
+            if (state == null) return false;
+            return IsInState(state.StateKey);
+        }
+
+        /// <summary>
+        /// 直接用 key 判断（适配枚举判断）
+        /// </summary>
+        public bool IsInState(T stateKey)
         {
             if (CurrentState == null) return false;
-    
-            // 情况1：当前状态就是目标状态
-            if (CurrentState == state) return true;
-    
-            // 情况2：当前状态本身也是一个状态机（嵌套），则递归查询这个子状态机
-            if (CurrentState is StateMachine subMachine)
-            {
-                return subMachine.IsInState(state);
-            }
-    
+
+            // 情况1：当前状态就是目标 key
+            if (Comparer<T>.Default.Compare(CurrentState.StateKey, stateKey) == 0)
+                return true;
+
+            // 情况2：当前状态本身也是一个状态机（嵌套），递归查询子状态机
+            if (CurrentState is StateMachine<T> subMachine)
+                return subMachine.IsInState(stateKey);
+
             return false;
         }
 
         /// <summary>
-        /// 判断当前状态机是否处于目标状态，并尝试获取状态路径（用于调试或详细判断）
+        /// 判断当前状态机是否处于目标状态，并尝试获取状态路径（IState 版本）
         /// </summary>
-        /// <param name="targetState">目标状态</param>
-        /// <param name="statePath">输出参数，从当前状态到目标状态的路径</param>
-        /// <returns>是否处于目标状态</returns>
-        public bool IsInState(IState targetState, out List<IState> statePath)
+        public bool IsInState(IState<T> targetState, out List<IState<T>> statePath)
         {
-            statePath = new List<IState>();
-            return GetStatePathRecursive(this, targetState, statePath);
+            statePath = new List<IState<T>>();
+            if (targetState == null) return false;
+
+            return GetStatePathRecursive(this, targetState.StateKey, statePath);
         }
 
-        private bool GetStatePathRecursive(StateMachine currentMachine, IState targetState, List<IState> path)
+        /// <summary>
+        /// ✅ 判断当前状态机是否处于目标状态，并获取 key 路径（更适合枚举调试）
+        /// </summary>
+        public bool IsInState(T targetKey, out List<T> keyPath)
+        {
+            keyPath = new List<T>();
+            return GetKeyPathRecursive(this, targetKey, keyPath);
+        }
+
+        private bool GetStatePathRecursive(StateMachine<T> currentMachine, T targetKey, List<IState<T>> path)
         {
             if (currentMachine.CurrentState == null) return false;
-    
+
             path.Add(currentMachine.CurrentState);
-    
-            if (currentMachine.CurrentState == targetState) return true;
-    
-            if (currentMachine.CurrentState is StateMachine subMachine)
+
+            if (Comparer<T>.Default.Compare(currentMachine.CurrentState.StateKey, targetKey) == 0)
+                return true;
+
+            if (currentMachine.CurrentState is StateMachine<T> subMachine)
             {
-                return GetStatePathRecursive(subMachine, targetState, path);
+                if (GetStatePathRecursive(subMachine, targetKey, path))
+                    return true;
             }
-    
+
+            path.RemoveAt(path.Count - 1); // 回溯
+            return false;
+        }
+
+        private bool GetKeyPathRecursive(StateMachine<T> currentMachine, T targetKey, List<T> path)
+        {
+            if (currentMachine.CurrentState == null) return false;
+
+            path.Add(currentMachine.CurrentState.StateKey);
+
+            if (Comparer<T>.Default.Compare(currentMachine.CurrentState.StateKey, targetKey) == 0)
+                return true;
+
+            if (currentMachine.CurrentState is StateMachine<T> subMachine)
+            {
+                if (GetKeyPathRecursive(subMachine, targetKey, path))
+                    return true;
+            }
+
             path.RemoveAt(path.Count - 1); // 回溯
             return false;
         }
